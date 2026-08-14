@@ -1,4 +1,4 @@
-/* HyprSchedule — eww stylesheet (Phases 4 & 6)
+/* HyprSchedule - eww stylesheet (Phases 4 & 6)
  *
  * Presentation only. Neutral, theme-agnostic palette; event types and
  * priorities are color-coded via classes emitted by the backend payload.
@@ -16,19 +16,19 @@ $text-dim: #6b7486;
 $accent: #7dd3fc;
 $danger: #fca5a5;
 
-$class-color: #7dd3fc;      /* Dạy học */
-$meeting-color: #c4b5fd;    /* Họp */
-$exam-color: #fca5a5;       /* Thi */
-$work-color: #86efac;       /* Công việc */
-$personal-color: #5eead4;   /* Cá nhân */
-$deadline-color: #fdba74;   /* Hạn chót */
-$task-color: #93c5fd;       /* Việc cần làm */
-$other-color: #a8b1c4;      /* Khác */
+$class-color: #7dd3fc;      /* Teaching */
+$meeting-color: #c4b5fd;    /* Meeting */
+$exam-color: #fca5a5;       /* Exam */
+$work-color: #86efac;       /* Work */
+$personal-color: #5eead4;   /* Personal */
+$deadline-color: #fdba74;   /* Deadline */
+$task-color: #93c5fd;       /* Task */
+$other-color: #a8b1c4;      /* Other */
 
-$high-color: #fbbf24;       /* Ưu tiên cao */
-$normal-color: #e8eaf0;     /* Bình thường */
-$low-color: #6b7486;        /* Thấp */
-$critical-color: #f87171;   /* Khẩn cấp */
+$high-color: #fbbf24;       /* High priority */
+$normal-color: #e8eaf0;     /* Normal */
+$low-color: #6b7486;        /* Low */
+$critical-color: #f87171;   /* Critical */
 
 window.hyprschedule-window > box.hyprschedule {
   background-color: $bg;
@@ -280,7 +280,6 @@ window.hyprschedule-window > box.hyprschedule {
 /* ------------------------------------------------------------- editor (P6) */
 
 .header-add {
-  margin-left: auto;
   padding: 0 8px;
   background-color: rgba(125, 211, 252, 0.12);
   border-radius: 8px;
@@ -311,7 +310,6 @@ window.hyprschedule-editor-window > box.hyprschedule-editor {
 }
 
 .editor-close {
-  margin-left: auto;
   padding: 0 8px;
   background: transparent;
   color: $text-muted;
@@ -359,7 +357,7 @@ window.hyprschedule-editor-window > box.hyprschedule-editor {
 }
 
 .editor-options {
-  flex-wrap: wrap;
+  background-color: transparent;
 }
 
 .editor-option {

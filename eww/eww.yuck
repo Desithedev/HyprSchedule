@@ -35,7 +35,7 @@
        :halign "fill"
     (label :class "header-date" :text {schedule.date?.display ?: ""})
     (label :class "header-time" :text time)
-    (button :class "header-add"
+    (button :class "header-add" :halign "end"
             :onclick "bin/hyprschedule_editor.py open-add"
             :tooltip "Thêm lịch mới"
       (label :text "+"))))
@@ -87,18 +87,18 @@
     (box :orientation "horizontal"
          :space-evenly false
          :halign "fill"
-      (label :class "event-row-time" :text event.start_display)
-      (label :class "event-row-title" :text event.title)
-      (label :class "event-row-end" :text event.end_display))))
+      (label :class "event-row-time" :text {event.start_display})
+      (label :class "event-row-title" :text {event.title})
+      (label :class "event-row-end" :text {event.end_display}))))
 
 (defwidget hyprschedule-today []
   (box :class "section today-section" :orientation "vertical"
     (label :class "section-title" :text "Hôm nay")
     (box :class "today-list" :orientation "vertical" :spacing 4
-      (for event in schedule.events
+      (for event in {schedule.events}
         (hyprschedule-event-row :event event))
       (label :class "empty-hint"
-             :visible {(arraylength schedule.events) == 0}
+             :visible {arraylength(schedule.events) == 0}
              :text "Hôm nay không còn lịch."))))
 
 ;; ---------------------------------------------------------------- free time
@@ -139,6 +139,7 @@
 ;; ------------------------------------------------------------------- window
 
 (defwindow hyprschedule
+  :monitor "HDMI-A-1"
   :stacking "bg"
   :exclusive false
   :focusable "none"
@@ -146,7 +147,6 @@
   :geometry (geometry :x "24px"
                       :y "48px"
                       :width "380px"
-                      :height "fit"
                       :anchor "top right")
   (box :class "hyprschedule"
        :orientation "vertical"
@@ -165,7 +165,7 @@
       (hyprschedule-tomorrow
        :show {schedule.widget?.show_tomorrow_count ?: false}))
     (hyprschedule-error
-     :show {(schedule.date?.iso ?: "") == ""}))
+     :show {(schedule.date?.iso ?: "") == ""})))
 
 ;; ----------------------------------------------------------- editor window
 ;;
@@ -208,7 +208,7 @@
       (label :class "editor-value-text" :text current))))
 
 (defwidget hyprschedule-editor []
-  (box :class "hyprschedule-editor" :orientation "vertical" :spacing 12
+  (box :class "hyprschedule-editor" :orientation "vertical" :spacing 12 :space-evenly false
     (box :class "editor-header" :orientation "horizontal" :space-evenly false :halign "fill"
       (label :class "editor-heading" :text "Thêm lịch mới"
              :visible {(editor-mode) == "add"})
@@ -217,7 +217,7 @@
       (button :class "editor-close" :halign "end"
               :onclick "bin/hyprschedule_editor.py close"
         (label :text "×")))
-    (box :class "editor-body" :orientation "vertical" :spacing 8
+    (box :class "editor-body" :orientation "vertical" :spacing 8 :space-evenly false
       (editor-field :label "Tiêu đề" :current {editor-title} :prompt-var "title")
       (editor-field :label "Ngày" :current {editor-date} :prompt-var "date")
       (editor-field :label "Bắt đầu" :current {editor-start} :prompt-var "start")
@@ -226,38 +226,39 @@
       (editor-field :label "Mô tả" :current {editor-description} :prompt-var "description")
       (editor-field :label "Lặp đến" :current {editor-until} :prompt-var "until"
                     :show {(editor-recurrence) == "weekly"})
-      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :halign "fill"
+      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :space-evenly false :space-evenly false :halign "fill"
         (label :class "editor-label" :text "Loại" :halign "start")
-        (box :class "editor-options" :orientation "horizontal" :spacing 4
+        (box :class "editor-options" :orientation "horizontal" :spacing 4 :space-evenly false
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type class" (label :text "Lớp học"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type meeting" (label :text "Họp"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type work" (label :text "Công việc"))
-          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type personal" (label :text "Cá nhân"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type personal" (label :text "Cá nhân")))
+        (box :class "editor-options" :orientation "horizontal" :spacing 4 :space-evenly false
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type deadline" (label :text "Hạn chót"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type task" (label :text "Việc"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type other" (label :text "Khác"))))
-      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :halign "fill"
+      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :space-evenly false :space-evenly false :halign "fill"
         (label :class "editor-label" :text "Ưu tiên" :halign "start")
-        (box :class "editor-options" :orientation "horizontal" :spacing 4
+        (box :class "editor-options" :orientation "horizontal" :spacing 4 :space-evenly false
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-priority low" (label :text "Thấp"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-priority normal" (label :text "Bình thường"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-priority high" (label :text "Cao"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-priority critical" (label :text "Khẩn cấp"))))
-      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :halign "fill"
+      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :space-evenly false :space-evenly false :halign "fill"
         (label :class "editor-label" :text "Riêng tư" :halign "start")
-        (box :class "editor-options" :orientation "horizontal" :spacing 4
+        (box :class "editor-options" :orientation "horizontal" :spacing 4 :space-evenly false
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-privacy public" (label :text "Công khai"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-privacy private" (label :text "Riêng tư"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-privacy hidden" (label :text "Ẩn"))))
-      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :halign "fill"
+      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :space-evenly false :space-evenly false :halign "fill"
         (label :class "editor-label" :text "Lặp lại" :halign "start")
-        (box :class "editor-options" :orientation "horizontal" :spacing 4
+        (box :class "editor-options" :orientation "horizontal" :spacing 4 :space-evenly false
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-recurrence none" (label :text "Một lần"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-recurrence weekly" (label :text "Hằng tuần"))))
-      (box :class "editor-picker-row" :orientation "vertical" :spacing 4
+      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :space-evenly false
            :visible {(editor-recurrence) == "weekly"}
         (label :class "editor-label" :text "Ngày trong tuần" :halign "start")
-        (box :class "editor-options" :orientation "horizontal" :spacing 4
+        (box :class "editor-options" :orientation "horizontal" :spacing 4 :space-evenly false
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday mon" (label :text "T2"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday tue" (label :text "T3"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday wed" (label :text "T4"))
@@ -265,9 +266,9 @@
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday fri" (label :text "T6"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday sat" (label :text "T7"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday sun" (label :text "CN"))))
-      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :halign "fill"
+      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :space-evenly false :space-evenly false :halign "fill"
         (label :class "editor-label" :text "Nhắc trước" :halign "start")
-        (box :class "editor-options" :orientation "horizontal" :spacing 4
+        (box :class "editor-options" :orientation "horizontal" :spacing 4 :space-evenly false
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-reminder 60" (label :text "60p"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-reminder 30" (label :text "30p"))
           (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-reminder 15" (label :text "15p"))
@@ -312,6 +313,7 @@
         (label :text "Hủy")))))
 
 (defwindow hyprschedule-editor
+  :monitor "HDMI-A-1"
   :stacking "bg"
   :exclusive false
   :focusable "none"
@@ -319,6 +321,5 @@
   :geometry (geometry :x "24px"
                       :y "48px"
                       :width "440px"
-                      :height "fit"
                       :anchor "top right")
-  (hyprschedule-editor)))
+  (hyprschedule-editor))

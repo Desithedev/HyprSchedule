@@ -24,6 +24,9 @@ field (it never crashes anything).
 
 The eww binary and schedctl console script are resolved from $PATH unless
 HYPRSCHEDULE_EWW / HYPRSCHEDULE_SCHEDCTL override them (used by tests).
+Every eww invocation passes ``--config`` pointing at this repo's ``eww/``
+directory (resolved from this script's own location), so the driver works
+regardless of the daemon's default config directory.
 """
 
 from __future__ import annotations
@@ -33,10 +36,15 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 from typing import Sequence
 
 EWW = os.environ.get("HYPRSCHEDULE_EWW", "eww")
 SCHEDCTL = os.environ.get("HYPRSCHEDULE_SCHEDCTL", "schedctl")
+
+# The eww daemon for HyprSchedule runs with --config <repo>/eww; the driver
+# must target the same daemon, so derive the config dir from this file's path.
+CONFIG_DIR = str(Path(__file__).resolve().parent.parent)
 
 EDITOR_WINDOW = "hyprschedule-editor"
 
@@ -72,11 +80,14 @@ def _run(argv: Sequence[str], *, input_text: str | None = None) -> subprocess.Co
 def _eww_update(variables: dict[str, str]) -> None:
     if not variables:
         return
-    _run([EWW, "update", *(f"{name}:{value}" for name, value in variables.items())])
+    result = _run([EWW, "--config", CONFIG_DIR, "update",
+                   *(f'{name}={value}' for name, value in variables.items())])
+    if result.returncode != 0:
+        raise DriverError(result.stderr.strip() or "eww update thất bại")
 
 
 def _eww_get(name: str) -> str:
-    result = _run([EWW, "get", name])
+    result = _run([EWW, "--config", CONFIG_DIR, "get", name])
     if result.returncode != 0:
         raise DriverError(f"eww không phản hồi ({result.stderr.strip() or 'eww get thất bại'})")
     return result.stdout.rstrip("\n")
@@ -84,7 +95,7 @@ def _eww_get(name: str) -> str:
 
 def _refresh_widget() -> None:
     """Re-run the schedule defpoll so the widget reflects the mutation."""
-    _run([EWW, "reload"])
+    _run([EWW, "--config", CONFIG_DIR, "reload"])
 
 
 def _schedctl(*argv: str, input_text: str | None = None) -> subprocess.CompletedProcess:
@@ -92,11 +103,11 @@ def _schedctl(*argv: str, input_text: str | None = None) -> subprocess.Completed
 
 
 def _open_window() -> None:
-    _run([EWW, "open", EDITOR_WINDOW])
+    _run([EWW, "--config", CONFIG_DIR, "open", EDITOR_WINDOW])
 
 
 def _close_window() -> None:
-    _run([EWW, "close", EDITOR_WINDOW])
+    _run([EWW, "--config", CONFIG_DIR, "close", EDITOR_WINDOW])
 
 
 # ------------------------------------------------------------- form plumbing
