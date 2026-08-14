@@ -1,0 +1,324 @@
+;; HyprSchedule — desktop widget + add/edit UI (Phases 4 & 6)
+;;
+;; Presentation layer only: every value comes from `schedctl eww` (one JSON
+;; document, polled every 30s) and every mutation goes through the backend
+;; via `bin/hyprschedule_editor.py`. This file must never contain business
+;; logic.
+;;
+;; Requires eww >= 0.5 (yuck syntax, `:exclusive`, `:focusable`, safe access
+;; `?.` and elvis `?:` operators). Wayland properties are used because the
+;; primary target is Hyprland; on X11 replace `:exclusive` with `:reserve`
+;; and `:wm-ignore true` (see README).
+;;
+;; Launch:   eww --config <repo>/eww daemon
+;;           eww --config <repo>/eww open hyprschedule
+;; Reload:   eww --config <repo>/eww reload
+;;
+;; Custom widgets declare their arguments in `[...]` — anything not declared
+;; is silently ignored, so `:visible` on a custom widget must be forwarded as
+;; a declared `?show` argument (optional args default to "").
+
+;; --------------------------------------------------------------------- data
+
+(defpoll schedule :interval "30s" :initial ""
+  `schedctl eww`)
+
+(defpoll time :interval "1s" :initial "00:00"
+  `date +%H:%M`)
+
+;; --------------------------------------------------------------- header row
+
+(defwidget hyprschedule-header []
+  (box :class "header"
+       :orientation "horizontal"
+       :space-evenly false
+       :halign "fill"
+    (label :class "header-date" :text {schedule.date?.display ?: ""})
+    (label :class "header-time" :text time)
+    (button :class "header-add"
+            :onclick "bin/hyprschedule_editor.py open-add"
+            :tooltip "Thêm lịch mới"
+      (label :text "+"))))
+
+;; ----------------------------------------------------------- current event
+
+(defwidget hyprschedule-current [?show]
+  (box :class "section current-section"
+       :visible {show ?: true}
+       :orientation "vertical"
+    (label :class "section-title" :text "Đang diễn ra")
+    (box :class "event-block type-${schedule.current?.event_type ?: 'other'}"
+         :orientation "vertical"
+         :spacing 6
+      (box :orientation "horizontal" :space-evenly false :halign "fill"
+        (label :class "event-title" :text {schedule.current?.title ?: ""})
+        (label :class "event-time" :text {schedule.current?.start_display ?: ""}))
+      (label :class "event-meta" :text {schedule.current?.location ?: ""})
+      (box :class "progress-row" :orientation "horizontal" :spacing 8 :halign "fill"
+        (progress :value {schedule.current?.progress_pct ?: 0}
+                  :orientation "horizontal")
+        (label :class "progress-label" :text {schedule.current?.progress_pct ?: 0}))
+      (label :class "event-remaining"
+             :text {schedule.current?.remaining_display ?: ""}))))
+
+;; --------------------------------------------------------------- next event
+
+(defwidget hyprschedule-next [?show]
+  (box :class "section next-section"
+       :visible {show ?: true}
+       :orientation "vertical"
+    (label :class "section-title" :text "Sắp tới")
+    (box :class "event-block type-${schedule.next?.event_type ?: 'other'}"
+         :orientation "vertical"
+         :spacing 6
+      (box :orientation "horizontal" :space-evenly false :halign "fill"
+        (label :class "event-title" :text {schedule.next?.title ?: ""})
+        (label :class "event-time" :text {schedule.next?.start_display ?: ""}))
+      (label :class "event-meta" :text {schedule.next?.location ?: ""})
+      (label :class "event-countdown"
+             :text {schedule.next?.starts_in_display ?: ""}))))
+
+;; ----------------------------------------------------------- today's list
+
+(defwidget hyprschedule-event-row [event]
+  (button :class "event-row type-${event.event_type} priority-${event.priority}"
+          :onclick "bin/hyprschedule_editor.py open-edit ${event.event_id}"
+          :tooltip "Sửa lịch"
+    (box :orientation "horizontal"
+         :space-evenly false
+         :halign "fill"
+      (label :class "event-row-time" :text event.start_display)
+      (label :class "event-row-title" :text event.title)
+      (label :class "event-row-end" :text event.end_display))))
+
+(defwidget hyprschedule-today []
+  (box :class "section today-section" :orientation "vertical"
+    (label :class "section-title" :text "Hôm nay")
+    (box :class "today-list" :orientation "vertical" :spacing 4
+      (for event in schedule.events
+        (hyprschedule-event-row :event event))
+      (label :class "empty-hint"
+             :visible {(arraylength schedule.events) == 0}
+             :text "Hôm nay không còn lịch."))))
+
+;; ---------------------------------------------------------------- free time
+
+(defwidget hyprschedule-free-time [?show]
+  (box :class "free-time"
+       :visible {show ?: true}
+       :orientation "horizontal"
+       :space-evenly false
+       :halign "fill"
+    (label :class "free-time-label" :text "Rảnh")
+    (label :class "free-time-range"
+           :text {schedule.free_time?.start_display ?: ""})
+    (label :class "free-time-duration"
+           :text {schedule.free_time?.duration_display ?: ""})))
+
+;; ---------------------------------------------------------- tomorrow count
+
+(defwidget hyprschedule-tomorrow [?show]
+  (box :class "tomorrow"
+       :visible {show ?: true}
+       :orientation "horizontal"
+       :space-evenly false
+       :halign "fill"
+    (label :class "tomorrow-label" :text "Ngày mai")
+    (label :class "tomorrow-count" :text {schedule.tomorrow?.display ?: ""})))
+
+;; ------------------------------------------------------------ error states
+
+(defwidget hyprschedule-error [?show]
+  (box :class "error-state"
+       :visible {show ?: true}
+       :orientation "vertical"
+       :spacing 4
+    (label :class "error-title" :text "Không thể tải lịch")
+    (label :class "error-hint" :text "Kiểm tra schedctl eww")))
+
+;; ------------------------------------------------------------------- window
+
+(defwindow hyprschedule
+  :stacking "bg"
+  :exclusive false
+  :focusable "none"
+  :namespace "hyprschedule"
+  :geometry (geometry :x "24px"
+                      :y "48px"
+                      :width "380px"
+                      :height "fit"
+                      :anchor "top right")
+  (box :class "hyprschedule"
+       :orientation "vertical"
+       :spacing 12
+    (hyprschedule-header)
+    (box :class "widget-body" :orientation "vertical" :spacing 12
+         :visible {(schedule.date?.iso ?: "") != ""}
+      (hyprschedule-current
+       :show {(schedule.current?.title ?: "") != ""})
+      (hyprschedule-next
+       :show {(schedule.next?.title ?: "") != ""})
+      (hyprschedule-today)
+      (hyprschedule-free-time
+       :show {(schedule.widget?.show_free_time ?: false)
+              && ((schedule.free_time?.duration_minutes ?: -1) >= 0)})
+      (hyprschedule-tomorrow
+       :show {schedule.widget?.show_tomorrow_count ?: false}))
+    (hyprschedule-error
+     :show {(schedule.date?.iso ?: "") == ""}))
+
+;; ----------------------------------------------------------- editor window
+;;
+;; Phase 6 — Add/Edit UI. Presentation only: `bin/hyprschedule_editor.py`
+;; talks to the backend through `schedctl editor-data` (read) and
+;; `schedctl editor-save` (mutate, one JSON document via stdin). All state
+;; machine transitions (idle/editing/saving/success/error/conflict/
+;; delete-confirm) live in the editor-* vars below.
+;;
+;; Limitations of stock eww, documented in README: there is no text-input
+;; widget (free-text fields prompt via rofi, falling back to yad) and no
+;; keyboard event handling (the editor is mouse-only).
+
+(defvar editor-state "idle")
+(defvar editor-mode "add")
+(defvar editor-id "")
+(defvar editor-title "")
+(defvar editor-date "")
+(defvar editor-start "")
+(defvar editor-end "")
+(defvar editor-location "")
+(defvar editor-description "")
+(defvar editor-type "class")
+(defvar editor-priority "normal")
+(defvar editor-privacy "public")
+(defvar editor-reminders "15,5,0")
+(defvar editor-recurrence "none")
+(defvar editor-weekdays "")
+(defvar editor-until "")
+(defvar editor-message "")
+(defvar editor-conflict "")
+
+(defwidget editor-field [label current prompt-var ?show]
+  (box :class "editor-field" :orientation "horizontal" :space-evenly false :halign "fill"
+       :visible {show ?: true}
+    (label :class "editor-label" :text label :halign "start")
+    (button :class "editor-value" :halign "end"
+            :onclick "bin/hyprschedule_editor.py prompt '${prompt-var}' '${label}'"
+            :tooltip "Sửa bằng hộp nhập liệu"
+      (label :class "editor-value-text" :text current))))
+
+(defwidget hyprschedule-editor []
+  (box :class "hyprschedule-editor" :orientation "vertical" :spacing 12
+    (box :class "editor-header" :orientation "horizontal" :space-evenly false :halign "fill"
+      (label :class "editor-heading" :text "Thêm lịch mới"
+             :visible {(editor-mode) == "add"})
+      (label :class "editor-heading" :text "Sửa lịch"
+             :visible {(editor-mode) == "edit"})
+      (button :class "editor-close" :halign "end"
+              :onclick "bin/hyprschedule_editor.py close"
+        (label :text "×")))
+    (box :class "editor-body" :orientation "vertical" :spacing 8
+      (editor-field :label "Tiêu đề" :current {editor-title} :prompt-var "title")
+      (editor-field :label "Ngày" :current {editor-date} :prompt-var "date")
+      (editor-field :label "Bắt đầu" :current {editor-start} :prompt-var "start")
+      (editor-field :label "Kết thúc" :current {editor-end} :prompt-var "end")
+      (editor-field :label "Địa điểm" :current {editor-location} :prompt-var "location")
+      (editor-field :label "Mô tả" :current {editor-description} :prompt-var "description")
+      (editor-field :label "Lặp đến" :current {editor-until} :prompt-var "until"
+                    :show {(editor-recurrence) == "weekly"})
+      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :halign "fill"
+        (label :class "editor-label" :text "Loại" :halign "start")
+        (box :class "editor-options" :orientation "horizontal" :spacing 4
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type class" (label :text "Lớp học"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type meeting" (label :text "Họp"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type work" (label :text "Công việc"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type personal" (label :text "Cá nhân"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type deadline" (label :text "Hạn chót"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type task" (label :text "Việc"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-type other" (label :text "Khác"))))
+      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :halign "fill"
+        (label :class "editor-label" :text "Ưu tiên" :halign "start")
+        (box :class "editor-options" :orientation "horizontal" :spacing 4
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-priority low" (label :text "Thấp"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-priority normal" (label :text "Bình thường"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-priority high" (label :text "Cao"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-priority critical" (label :text "Khẩn cấp"))))
+      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :halign "fill"
+        (label :class "editor-label" :text "Riêng tư" :halign "start")
+        (box :class "editor-options" :orientation "horizontal" :spacing 4
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-privacy public" (label :text "Công khai"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-privacy private" (label :text "Riêng tư"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-privacy hidden" (label :text "Ẩn"))))
+      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :halign "fill"
+        (label :class "editor-label" :text "Lặp lại" :halign "start")
+        (box :class "editor-options" :orientation "horizontal" :spacing 4
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-recurrence none" (label :text "Một lần"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py set editor-recurrence weekly" (label :text "Hằng tuần"))))
+      (box :class "editor-picker-row" :orientation "vertical" :spacing 4
+           :visible {(editor-recurrence) == "weekly"}
+        (label :class "editor-label" :text "Ngày trong tuần" :halign "start")
+        (box :class "editor-options" :orientation "horizontal" :spacing 4
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday mon" (label :text "T2"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday tue" (label :text "T3"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday wed" (label :text "T4"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday thu" (label :text "T5"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday fri" (label :text "T6"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday sat" (label :text "T7"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-weekday sun" (label :text "CN"))))
+      (box :class "editor-picker-row" :orientation "vertical" :spacing 4 :halign "fill"
+        (label :class "editor-label" :text "Nhắc trước" :halign "start")
+        (box :class "editor-options" :orientation "horizontal" :spacing 4
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-reminder 60" (label :text "60p"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-reminder 30" (label :text "30p"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-reminder 15" (label :text "15p"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-reminder 10" (label :text "10p"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-reminder 5" (label :text "5p"))
+          (button :class "editor-option" :onclick "bin/hyprschedule_editor.py toggle-reminder 0" (label :text "Lúc bắt đầu"))))
+      (label :class "editor-recurring-hint" :text "Thay đổi này áp dụng cho toàn bộ lịch lặp."
+             :visible {(editor-mode) == "edit" && (editor-recurrence) == "weekly"})
+      (box :class "editor-error-box" :orientation "vertical" :spacing 4
+           :visible {(editor-state) == "error"}
+        (label :class "editor-error" :text {editor-message}))
+      (box :class "editor-conflict-box" :orientation "vertical" :spacing 8
+           :visible {(editor-state) == "conflict"}
+        (label :class "editor-conflict-title" :text "Lịch trùng giờ:")
+        (label :class "editor-conflict" :text {editor-conflict})
+        (box :orientation "horizontal" :spacing 8 :space-evenly false
+          (button :class "editor-danger" :onclick "bin/hyprschedule_editor.py save force"
+                  (label :text "Lưu vẫn cứ lưu"))
+          (button :class "editor-plain"
+                  :onclick "bin/hyprschedule_editor.py set editor-state editing"
+                  (label :text "Quay lại"))))
+      (box :class "editor-confirm-box" :orientation "vertical" :spacing 8
+           :visible {(editor-state) == "delete-confirm"}
+        (label :class "editor-confirm" :text "Xóa toàn bộ chuỗi lịch lặp?")
+        (box :orientation "horizontal" :spacing 8 :space-evenly false
+          (button :class "editor-danger" :onclick "bin/hyprschedule_editor.py delete"
+                  (label :text "Xóa"))
+          (button :class "editor-plain"
+                  :onclick "bin/hyprschedule_editor.py set editor-state editing"
+                  (label :text "Hủy"))))
+      (box :class "editor-delete-row" :orientation "horizontal" :spacing 8
+           :visible {(editor-mode) == "edit" && (editor-state) != "delete-confirm"}
+        (button :class "editor-delete"
+                :onclick "bin/hyprschedule_editor.py set editor-state delete-confirm"
+          (label :text "Xóa lịch này"))))
+    (box :class "editor-footer" :orientation "horizontal" :spacing 8
+         :space-evenly false :halign "fill"
+      (button :class "editor-save" :onclick "bin/hyprschedule_editor.py save"
+              :visible {(editor-state) != "delete-confirm"}
+        (label :text "Lưu"))
+      (button :class "editor-cancel" :onclick "bin/hyprschedule_editor.py close"
+        (label :text "Hủy")))))
+
+(defwindow hyprschedule-editor
+  :stacking "bg"
+  :exclusive false
+  :focusable "none"
+  :namespace "hyprschedule"
+  :geometry (geometry :x "24px"
+                      :y "48px"
+                      :width "440px"
+                      :height "fit"
+                      :anchor "top right")
+  (hyprschedule-editor)))

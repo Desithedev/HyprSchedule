@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hyprschedule"
+version = "0.1.0"
+description = "Local-first personal schedule system for Arch Linux + Hyprland"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+schedctl = "hyprschedule.cli:main"
+scheduled = "hyprschedule.scheduler:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hyprschedule"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
