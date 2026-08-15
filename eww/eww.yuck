@@ -20,7 +20,7 @@
 
 ;; --------------------------------------------------------------------- data
 
-(defpoll schedule :interval "30s" :initial ""
+(defpoll schedule :interval "30s" :initial "{}"
   `schedctl eww`)
 
 (defpoll time :interval "1s" :initial "00:00"
@@ -95,10 +95,10 @@
   (box :class "section today-section" :orientation "vertical"
     (label :class "section-title" :text "Hôm nay")
     (box :class "today-list" :orientation "vertical" :spacing 4
-      (for event in {schedule.events}
+      (for event in {schedule.events ?: []}
         (hyprschedule-event-row :event event))
       (label :class "empty-hint"
-             :visible {arraylength(schedule.events) == 0}
+             :visible {arraylength(schedule.events ?: []) == 0}
              :text "Hôm nay không còn lịch."))))
 
 ;; ---------------------------------------------------------------- free time

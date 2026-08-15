@@ -158,5 +158,5 @@ def test_yuck_uses_documented_eww_features():
     assert ":visible {" in src
     assert "?: " in src
     assert "?." in src  # safe access somewhere
-    assert "for event in {schedule.events}" in src
+    assert "for event in {schedule.events ?: []}" in src
     assert "(progress :value" in src
